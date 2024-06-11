@@ -23,50 +23,58 @@ fun main() {
     // todo: until game finished
     while (true) {
         val player = players[currentIdx]
-        var dice = (1..5).map { Random.nextInt(1, 6) }.sorted()
+        val numDice = 5
+        var dice = shuffleDice(numDice)
         var finished = false
-        while (!finished) {
+        var points = 0
+        while (true) {
+            if( dice.none{it==5 || it == 1}) {
+                println("shiiiit, no points to make. sry m8")
+                break
+            }
             val response = move(dice, player)
             if (response.valid) {
-                val newDice = response.numbers!!
+                val tokenDice = response.numbers!!
                 // not yet working, needing seperated dice
                 // just takes as much dice as it can
-                if (dice.containsAll(newDice)) {
-                    val probNewDice = dice - newDice
-                    if (probNewDice.size == dice.size-newDice.size) {
-                        val pattern = testPattern(newDice)
-                        if( pattern > 0 ) {
+                if (dice.containsAll(tokenDice)) {
+                    val toReshuffle = dice - tokenDice
+                    if (toReshuffle.size == dice.size - tokenDice.size) {
+                        val patternPoints = testPattern(tokenDice)
+                        if (patternPoints > 0) {
                             // todo: wraong. needing a buffer here
                             // points only count only if you make it to the end
-                            pointLog[currentIdx] = pointLog[currentIdx]!! + pattern
+                            points += patternPoints
                             println(pointLog.mapKeys { players[it.key] })
-                            dice = probNewDice
+                            dice = shuffleDice(toReshuffle.size)
+                        } else {
+                            break
                         }
                     } else {
                         println("you didn't have all dice as many times as you thought")
                     }
 
-                }else {
+                } else {
                     println("naughty, you didn't have those dice")
                 }
 
             } else {
                 println(response.message)
             }
-
         }
     }
 }
+
+private fun shuffleDice(numDice: Int) = (1..numDice).map { Random.nextInt(1, 6) }.sorted()
 
 fun testPattern(newDice: List<Int>): Int {
     val sDice = newDice.sorted()
     // todo: straight, pairs
     // so far: 1 & 5
 
-    if(sDice.all { it == 5 || it == 1 } )
-    {
+    if (sDice.all { it == 5 || it == 1 }) {
         return sDice.map {
-            when(it) {
+            when (it) {
                 5 -> 50
                 1 -> 100
                 else -> 0
