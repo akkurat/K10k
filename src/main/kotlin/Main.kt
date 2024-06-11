@@ -28,9 +28,20 @@ fun main() {
             val response = move(dice, player)
             if (response.valid) {
                 val newDice = response.numbers!!
+                // not yet working, needing seperated dice
+                // just takes as much dice as it can
                 if (dice.containsAll(newDice)) {
-                    dice = newDice
+                    val probNewDice = dice - newDice
+                    if (probNewDice.size == dice.size-newDice.size) {
+                        dice = probNewDice
+                    } else {
+                        println("you didn't have all dice as many times as you thought")
+                    }
+
+                }else {
+                    println("naughty, you didn't have those dice")
                 }
+
             } else {
                 println(response.message)
             }
