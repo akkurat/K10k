@@ -18,11 +18,12 @@ fun main() {
 
     var currentIdx = Random.nextInt(numPlayers)
 
+    val pointLog = (0..<numPlayers).associateWith { 0 }.toMutableMap()
 
     // todo: until game finished
     while (true) {
         val player = players[currentIdx]
-        var dice = (1..5).map { Random.nextInt(1, 6) }
+        var dice = (1..5).map { Random.nextInt(1, 6) }.sorted()
         var finished = false
         while (!finished) {
             val response = move(dice, player)
@@ -33,7 +34,14 @@ fun main() {
                 if (dice.containsAll(newDice)) {
                     val probNewDice = dice - newDice
                     if (probNewDice.size == dice.size-newDice.size) {
-                        dice = probNewDice
+                        val pattern = testPattern(newDice)
+                        if( pattern > 0 ) {
+                            // todo: wraong. needing a buffer here
+                            // points only count only if you make it to the end
+                            pointLog[currentIdx] = pointLog[currentIdx]!! + pattern
+                            println(pointLog.mapKeys { players[it.key] })
+                            dice = probNewDice
+                        }
                     } else {
                         println("you didn't have all dice as many times as you thought")
                     }
@@ -47,9 +55,25 @@ fun main() {
             }
 
         }
-
-
     }
+}
+
+fun testPattern(newDice: List<Int>): Int {
+    val sDice = newDice.sorted()
+    // todo: straight, pairs
+    // so far: 1 & 5
+
+    if(sDice.all { it == 5 || it == 1 } )
+    {
+        return sDice.map {
+            when(it) {
+                5 -> 50
+                1 -> 100
+                else -> 0
+            }
+        }.sum()
+    }
+    return 0
 }
 
 private fun move(dice: List<Int>, player: String): Move {
