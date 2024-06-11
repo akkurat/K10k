@@ -1,5 +1,6 @@
 package org.example
 
+import org.example.org.example.Move
 import kotlin.random.Random
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
@@ -21,16 +22,33 @@ fun main() {
     // todo: until game finished
     while (true) {
         val player = players[currentIdx]
-        val dice = (1..5).map ({ Random.nextInt(1, 6) })
+        var dice = (1..5).map { Random.nextInt(1, 6) }
+        var finished = false
+        while (!finished) {
+            val response = move(dice, player)
+            if (response.valid) {
+                val newDice = response.numbers!!
+                if (dice.containsAll(newDice)) {
+                    dice = newDice
+                }
+            } else {
+                println(response.message)
+            }
 
-        println(dice)
-        println("[$player]: Tell me your move. What do you keep?")
-        val keepingDice = readln()
-        try {
-            keepingDice.split(";", " ", ",", "-").map { it.toInt() }
-        } catch (e : NumberFormatException) {
-            println("try again. $keepingDice is not a valid ")
         }
 
+
+    }
+}
+
+private fun move(dice: List<Int>, player: String): Move {
+    println(dice)
+    println("[$player]: Tell me your move. What do you keep?")
+    val keepingDice = readln()
+    return try {
+        val kept = keepingDice.split(";", " ", ",", "-").map { it.toInt() }
+        Move(null, kept)
+    } catch (e: NumberFormatException) {
+        Move("try again. $keepingDice is not a valid ", null)
     }
 }
