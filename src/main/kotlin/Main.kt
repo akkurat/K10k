@@ -21,13 +21,13 @@ fun main() {
     val pointLog = (0..<numPlayers).associateWith { 0 }.toMutableMap()
 
     // todo: until game finished
-    while (true) {
+    while (true) { // player changed
         val player = players[currentIdx]
         val numDice = 5
         var dice = shuffleDice(numDice)
         var finished = false
-        var points = 0
-        while (true) {
+        var pointsBuffer = 0
+        while (true) {// player loop
             if( dice.none{it==5 || it == 1}) {
                 println("shiiiit, no points to make. sry m8")
                 break
@@ -44,8 +44,16 @@ fun main() {
                         if (patternPoints > 0) {
                             // todo: wraong. needing a buffer here
                             // points only count only if you make it to the end
-                            points += patternPoints
-                            println(pointLog.mapKeys { players[it.key] })
+                            pointsBuffer += patternPoints
+                            println(pointsBuffer)
+                            if(pointsBuffer >= 300) {
+                                println("Write your points?")
+                                val answer = readln()
+                                if( answer.startsWith("Y", ignoreCase = true)) {
+                                    pointLog[currentIdx] = pointLog[currentIdx]!! + pointsBuffer
+                                    break
+                                }
+                            }
                             dice = shuffleDice(toReshuffle.size)
                         } else {
                             break
@@ -62,6 +70,13 @@ fun main() {
                 println(response.message)
             }
         }
+        if(pointLog.any{it.value> 10_000}) {
+            println("lucky you $player")
+            break
+        }
+        currentIdx = (currentIdx + 1) % numPlayers
+        println(pointLog.mapKeys { players[it.key] })
+
     }
 }
 
