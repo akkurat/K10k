@@ -1,76 +1,68 @@
 package org.example
 
-import org.example.org.example.Move
 import kotlin.random.Random
+
+enum class RuleType {
+    A, B
+}
+
+private const val NUM_DICE = 6
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
 
     val numPlayers = 2
-    val players = mutableListOf<String>()
+    val players = mutableListOf("Hans", "Pferdi")
+//    val players = mutableListOf<String>()
+//
+//    for (i in 1..numPlayers) {
+//        println("Player $i, enter your name")
+//        val playername = readln()
+//        players.add(playername)
+//    }
 
-    for (i in 1..numPlayers) {
-        println("Player $i, enter your name")
-        val playername = readln()
-        players.add(playername)
-    }
+//    val rule: RuleType
+//    println("What rules should apply? A: normal, B: extended")
+//    val rules = readln()
+//    rule = if (rules.startsWith("B", ignoreCase = true)) RuleType.B else RuleType.A
 
     var currentIdx = Random.nextInt(numPlayers)
-
     val pointLog = (0..<numPlayers).associateWith { 0 }.toMutableMap()
 
     // todo: until game finished
     while (true) { // player changed
         val player = players[currentIdx]
-        val numDice = 5
-        var dice = shuffleDice(numDice)
+        var dice = shuffleDice(NUM_DICE)
         var finished = false
         var pointsBuffer = 0
+        var patternsBuff = mutableListOf<List<Int>>()
         while (true) {// player loop
-            if( dice.none{it==5 || it == 1}) {
-                println("shiiiit, no points to make. sry m8")
+            val selectedDice = move(dice, player)
+            if (selectedDice.isEmpty()) {
+                println("Bad luck")
                 break
             }
-            val response = move(dice, player)
-            if (response.valid) {
-                val tokenDice = response.numbers!!
-                // not yet working, needing seperated dice
-                // just takes as much dice as it can
-                if (dice.containsAll(tokenDice)) {
-                    val toReshuffle = dice - tokenDice
-                    if (toReshuffle.size == dice.size - tokenDice.size) {
-                        val patternPoints = testPattern(tokenDice)
-                        if (patternPoints > 0) {
-                            // todo: wraong. needing a buffer here
-                            // points only count only if you make it to the end
-                            pointsBuffer += patternPoints
-                            println(pointsBuffer)
-                            if(pointsBuffer >= 300) {
-                                println("Write your points?")
-                                val answer = readln()
-                                if( answer.startsWith("Y", ignoreCase = true)) {
-                                    pointLog[currentIdx] = pointLog[currentIdx]!! + pointsBuffer
-                                    break
-                                }
-                            }
-                            dice = shuffleDice(toReshuffle.size)
-                        } else {
-                            break
-                        }
-                    } else {
-                        println("you didn't have all dice as many times as you thought")
-                    }
-
-                } else {
-                    println("naughty, you didn't have those dice")
-                }
-
+            val points = testPattern(selectedDice)
+            if (points == 0) {
+                println("Pattern was invalid, try again")
             } else {
-                println(response.message)
+                patternsBuff.add(selectedDice)
+                pointsBuffer += points
+                // if all dice were selected, one can start with 5 or 6 dice again (N)
+                dice = shuffleDice((dice.size - selectedDice.size + NUM_DICE) % NUM_DICE)
+                println("you have $pointsBuffer points / $patternsBuff")
+                if (pointsBuffer >= 300) {
+                    println("Write your points?")
+                    val answer = readln()
+                    if (answer.startsWith("Y", ignoreCase = true)) {
+                        pointLog[currentIdx] = pointLog[currentIdx]!! + pointsBuffer
+                        break
+                    }
+                }
             }
         }
-        if(pointLog.any{it.value> 10_000}) {
+        if (pointLog.any { it.value > 10_000 }) {
             println("lucky you $player")
             break
         }
@@ -99,14 +91,68 @@ fun testPattern(newDice: List<Int>): Int {
     return 0
 }
 
-private fun move(dice: List<Int>, player: String): Move {
+private fun move(dice: List<Int>, player: String): List<Int> {
+    do {
+        val result = _move(dice, player)
+        if (result != null) {
+            return result
+        }
+    } while (true)
+}
+
+private fun _move(dice: List<Int>, player: String): List<Int>? {
     println(dice)
     println("[$player]: Tell me your move. What do you keep?")
     val keepingDice = readln()
-    return try {
-        val kept = keepingDice.split(";", " ", ",", "-").map { it.toInt() }
-        Move(null, kept)
+    val keptDiceUnverified = try {
+        if (keepingDice.isEmpty()) {
+            listOf()
+        } else {
+            keepingDice.split(";", " ", ",", "-").map { it.toInt() }
+        }
     } catch (e: NumberFormatException) {
-        Move("try again. $keepingDice is not a valid ", null)
+        println("try again. $keepingDice is not a valid ")
+        return null
     }
+    if (verifyDice(avaible = dice, possibleSub = keptDiceUnverified)) {
+        return keptDiceUnverified
+    } else {
+        println("You can only select available dice")
+    }
+    return null
 }
+
+fun <K> verifyDice(avaible: List<K>, possibleSub: List<K>): Boolean {
+    val avaibleMut = avaible.toMutableList()
+    for (sub in possibleSub) {
+        val wasThere = avaibleMut.remove(sub)
+        if (!wasThere) {
+            return false
+        }
+    }
+    return true
+}
+
+
+//            val toReshuffle = dice - tokenDice
+//            if (toReshuffle.size == dice.size - tokenDice.size) {
+//                val patternPoints = testPattern(tokenDice)
+//                if (patternPoints > 0) {
+//                    // todo: wraong. needing a buffer here
+//                    // points only count only if you make it to the end
+//                    dice = shuffleDice(toReshuffle.size)
+//                } else {
+//                    break
+//                }
+//            } else {
+//                println("you didn't have all dice as many times as you thought")
+//            }
+//
+//        } else {
+//            println("naughty, you didn't have those dice")
+//        }
+//
+//    } else {
+//        println(response.message)
+//    }
+//}
