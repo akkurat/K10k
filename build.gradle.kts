@@ -32,6 +32,9 @@ tasks.withType<Jar> {
     manifest {
         attributes["Main-Class"] = mc
     }
+
+    // https://www.baeldung.com/gradle-fat-jar
+    // https://stackoverflow.com/questions/46157338/using-gradle-to-build-a-jar-with-dependencies-with-kotlin-dsl
     configurations["runtimeClasspath"].forEach { file: File ->
         from(zipTree(file.absoluteFile))
     }

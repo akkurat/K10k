@@ -1,3 +1,9 @@
+Kotlin implementation of Zehntausend
+
+* https://de.wikipedia.org/wiki/Zehntausend_(Spiel)
+* https://en.wikipedia.org/wiki/Dice_10000
+* https://spiele.rocks/wuerfelspiele/zehntausend
+
 ```
 ./gradlew run --console=plain
 ```
