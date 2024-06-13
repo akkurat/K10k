@@ -1,4 +1,5 @@
 package ch.taburett
+import kotlinx.coroutines.*
 
 import kotlin.math.pow
 import kotlin.random.Random
@@ -12,35 +13,60 @@ private const val NUM_DICE = 6
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
+    val out : (sdf:String) -> Unit = {}
+    runBlocking {
+        val results = (1..100_000).map { i ->
+            async(Dispatchers.Default) {  game(out)}
+        }.awaitAll()
+    val grouped = results.flatMap { it.map { it.toPair() } }.groupBy({ it.first }, { it.second })
 
-    val numPlayers = 2
-    val players = mutableListOf("Hans", "Pferdi")
-    val playerhandler = mutableListOf(CliPlayer(), AutoPlayer())
-//    val players = mutableListOf<String>()
-//
-//    for (i in 1..numPlayers) {
-//        println("Player $i, enter your name")
-//        val playername = readln()
-//        players.add(playername)
-//    }
 
-//    val rule: RuleType
-//    println("What rules should apply? A: normal, B: extended")
-//    val rules = readln()
-//    rule = if (rules.startsWith("B", ignoreCase = true)) RuleType.B else RuleType.A
+    val winner = results.map { it.maxBy { it.value }.key }
+    val eachCount = winner.groupingBy { it }.eachCount()
+    val s = "Each Count"
+    printMapFormatted(s, eachCount)
 
+
+    printMapFormatted("avg", grouped.mapValues { it.value.average() })
+    printMapFormatted("min", grouped.mapValues { it.value.min() })
+    printMapFormatted("max", grouped.mapValues { it.value.max() })
+    }
+
+//    results.forEachIndexed{i,v-> println("$i $v")}
+}
+
+private fun printMapFormatted(title: String, eachCount: Map<Player, Number>) {
+    println(
+        "=== $title ===\n" +
+                eachCount.toList().sortedBy { it.second.toDouble() }
+                    .joinToString("\n") { "${it.first.toString().padStart(20)} ${it.second}" }
+    )
+}
+
+fun game(out: (sdf: String) -> Unit): Map<Player, Int> {
+
+    val playerhandlers: List<Player> = listOf(
+        AutoPlayer(2, 500, "Avg", 0),
+        AutoPlayer(2, 1000, "Avg", 0),
+        AutoPlayer(3, 300, "Coward", 0),
+        AutoPlayer(1, 300, "Hc", 0),
+        AutoPlayer(1, 1000, "Testo", 0),
+        AutoPlayer(1, 1500, "Tc", 0),
+    )
+
+    val numPlayers = playerhandlers.size
     var currentIdx = Random.nextInt(numPlayers)
-    val pointLog = (0..<numPlayers).associateWith { 0 }.toMutableMap()
+    val pointLog = playerhandlers.associateWith { 0 }.toMutableMap()
 
-    // todo: until game finished
     while (true) { // player changed
-        val player = players[currentIdx]
         var dice = shuffleDice(NUM_DICE)
-        var finished = false
         var pointsBuffer = 0
-        var patternsBuff = mutableListOf<List<Int>>()
+        val patternsBuff = mutableListOf<List<Int>>()
+        val playerHandler = playerhandlers[currentIdx]
+        val playerName = playerHandler.name
         while (true) {// player loop
-            val selectedDice = playerhandler[currentIdx].move(dice, player, pointsBuffer, pointLog.toMap())
+            val selectedDice = playerHandler.move(dice, pointsBuffer, pointLog.toMap())
+            println("[$playerName] takes $selectedDice")
             if (selectedDice.isEmpty()) {
                 println("Bad luck")
                 break
@@ -55,32 +81,39 @@ fun main() {
                 val diff = dice.size - selectedDice.size
                 val num = if (diff == 0) NUM_DICE else diff
                 dice = shuffleDice(num)
-                println("you have $pointsBuffer points / $patternsBuff")
+                println("[$playerName] has $pointsBuffer points / $patternsBuff")
                 if (pointsBuffer >= 300) {
-                    val answer = playerhandler[currentIdx].writePoints(dice.size, points, pointLog)
+                    val answer = playerHandler.writePoints(dice.size, pointsBuffer, pointLog)
                     println("Write your points?")
                     if (answer) {
-                        pointLog[currentIdx] = pointLog[currentIdx]!! + pointsBuffer
+                        println("[$playerName] adds $pointsBuffer points")
+                        pointLog[playerHandler] = pointLog[playerHandler]!! + pointsBuffer
                         break
+                    } else {
+                        println("Challenging your luck...")
                     }
                 }
             }
         }
         if (pointLog.any { it.value > 10_000 }) {
-            println("lucky you $player. you won with")
-            println( pointLog.mapKeys { players[it.key] })
+            println("lucky you $playerName. you won with")
+            println(pointLog)
+            return pointLog
             break
         }
         currentIdx = (currentIdx + 1) % numPlayers
-        println(pointLog.mapKeys { players[it.key] })
-
+        println(pointLog)
     }
 }
 
-class AutoPlayer : Player {
-    override fun move(dice: List<Int>, player: String, pointsBuffer: Int, toMap: Map<Int, Int>): List<Int> {
-        println("$dice")
-        val fiveten: (Int) -> Boolean = { it == 1 || it == 5 }
+
+class AutoPlayer(val minDice: Int = 2, val minPoints: Int = 500, name: String, val delay: Long = 300) : Player {
+    override val name = "$name/${minPoints}/${minDice}"
+    override fun toString(): String = name
+    override fun move(dice: List<Int>, pointsBuffer: Int, pointLog: Map<Player, Int>): List<Int> {
+        println("What shall I do with $dice?")
+        if (delay > 0) Thread.sleep(delay)
+        val oneOfive: (Int) -> Boolean = { it == 1 || it == 5 }
         val out = mutableListOf<Int>()
         val copy = dice.toMutableList()
         val (a, b) = testStraights(dice)
@@ -89,42 +122,60 @@ class AutoPlayer : Player {
             out.addAll(b)
         }
         val (pp, pl) = testPasch(copy)
-        if (pp >= 500) {
+        if (pp >= minPoints || copy.none(oneOfive)) {
             copy.removeAll(pl)
             out.addAll(pl)
         }
         if (copy.isNotEmpty()) {
-            if (copy.all(fiveten)) {
-                copy.clear()
+            if (copy.all(oneOfive)) {
                 out.addAll(copy)
+                copy.clear()
             }
             if (out.isEmpty()) {
-                val shit = copy.filter(fiveten).minOfOrNull { it }
-                copy.remove(shit)
-                shit?.let { out.add(it) }
-            } else {
-                copy.size
-                val shit = copy.filter(fiveten)
+                val singleDice = copy.filter(oneOfive).minOfOrNull { it }
+                copy.remove(singleDice)
+                singleDice?.let { out.add(it) }
+            }
 
-                if (copy.size - shit.size <= 2) {
-                    out.addAll(shit)
-                }
+            if (copy.size <= minDice) {
+                val singleDice = copy.filter(oneOfive)
+                out.addAll(singleDice)
+                copy.removeAll(singleDice)
             }
         }
-        println("taking $out")
         return out
 
     }
 
-    override fun writePoints(numDice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean {
+    override fun writePoints(numDice: Int, points: Int, pointLog: Map<Player, Int>): Boolean {
+        println("To write or not to write...")
+        if (delay > 0) Thread.sleep(delay)
         if (points > 1500) {
             return true
         }
 
-        if (numDice <= 2) {
+        if (numDice <= minDice) {
             return true
         }
         return false
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AutoPlayer) return false
+
+        if (minDice != other.minDice) return false
+        if (minPoints != other.minPoints) return false
+        if (name != other.name) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = minDice
+        result = 31 * result + minPoints
+        result = 31 * result + name.hashCode()
+        return result
     }
 
 }
@@ -134,17 +185,13 @@ private fun shuffleDice(numDice: Int) = (1..numDice).map { Random.nextInt(1, 6) 
 fun testPattern(dice: List<Int>): Int {
     val mutableDice = dice.sorted().toMutableList()
 
-
     val (straightPoints, straightDice) = testStraights(mutableDice.toList())
-
     mutableDice.removeAllOnlyFirstInstance(straightDice)
 
     val (paschPoints, paschDice) = testPasch(mutableDice.toList())
-
     mutableDice.removeAllOnlyFirstInstance(paschDice)
 
     val (singlePoints, singleDice) = singleDice(mutableDice.toList())
-
     mutableDice.removeAllOnlyFirstInstance(singleDice)
 
     if (mutableDice.isEmpty()) {
@@ -215,19 +262,20 @@ fun testStraights(dice: List<Int>): Pair<Int, List<Int>> {
     return 0 to emptyList()
 }
 
-class CliPlayer : Player {
-    override fun move(dice: List<Int>, player: String, pointsBuffer: Int, toMap: Map<Int, Int>): List<Int> {
+class CliPlayer(override val name: String) : Player {
+    override fun move(dice: List<Int>, pointsBuffer: Int, pointLog: Map<Player, Int>): List<Int> {
+
         do {
-            val result = _move(dice, player)
+            val result = _move(dice)
             if (result != null) {
                 return result
             }
         } while (true)
     }
 
-    override fun writePoints(dice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean {
+    override fun writePoints(dice: Int, points: Int, pointLog: Map<Player, Int>): Boolean {
         while (true) {
-            println("write points?")
+            println("write $points points? $dice dice left")
             val answer = readln()
             if (answer.startsWith("Y", ignoreCase = true)) {
                 return true
@@ -238,9 +286,9 @@ class CliPlayer : Player {
         }
     }
 
-    private fun _move(dice: List<Int>, player: String): List<Int>? {
+    private fun _move(dice: List<Int>): List<Int>? {
         println(dice)
-        println("[$player]: Tell me your move. What do you keep? N(one) / A(ll) / \\d+")
+        println("[$name]: Tell me your move. What do you keep? N(one) / A(ll) / \\d+")
         val keepingDice = readln()
         val keptDiceUnverified = try {
             if (keepingDice.startsWith("n", ignoreCase = true)) {
@@ -257,7 +305,7 @@ class CliPlayer : Player {
             println("try again. $keepingDice is not a valid ")
             return null
         }
-        val failures = dice.testEachInstance( possibleSub = keptDiceUnverified)
+        val failures = dice.testEachInstance(possibleSub = keptDiceUnverified)
         if (failures.isEmpty()) {
             return keptDiceUnverified
         } else {
@@ -268,8 +316,9 @@ class CliPlayer : Player {
 }
 
 interface Player {
-    fun move(dice: List<Int>, player: String, pointsBuffer: Int, toMap: Map<Int, Int>): List<Int>
-    fun writePoints(dice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean
+    val name: String
+    fun move(dice: List<Int>, pointsBuffer: Int, pointLog: Map<Player, Int>): List<Int>
+    fun writePoints(dice: Int, points: Int, pointLog: Map<Player, Int>): Boolean
 }
 
 
@@ -304,8 +353,8 @@ fun <K> List<K>.testEachInstance(possibleSub: List<K>): List<K> {
 
 fun <K> List<K>.containsEachInstance(possibleSub: List<K>): Boolean {
     val avaibleMut = this.toMutableList()
-    for( s in possibleSub) {
-        if(!avaibleMut.remove(s)) {
+    for (s in possibleSub) {
+        if (!avaibleMut.remove(s)) {
             return false
         }
     }
