@@ -15,6 +15,7 @@ fun main() {
 
     val numPlayers = 2
     val players = mutableListOf("Hans", "Pferdi")
+    val playerhandler = mutableListOf(CliPlayer(), AutoPlayer())
 //    val players = mutableListOf<String>()
 //
 //    for (i in 1..numPlayers) {
@@ -39,7 +40,7 @@ fun main() {
         var pointsBuffer = 0
         var patternsBuff = mutableListOf<List<Int>>()
         while (true) {// player loop
-            val selectedDice = move(dice, player)
+            val selectedDice = playerhandler[currentIdx].move(dice, player, pointsBuffer, pointLog.toMap())
             if (selectedDice.isEmpty()) {
                 println("Bad luck")
                 break
@@ -56,9 +57,9 @@ fun main() {
                 dice = shuffleDice(num)
                 println("you have $pointsBuffer points / $patternsBuff")
                 if (pointsBuffer >= 300) {
+                    val answer = playerhandler[currentIdx].writePoints(dice.size, points, pointLog)
                     println("Write your points?")
-                    val answer = readln()
-                    if (answer.startsWith("Y", ignoreCase = true)) {
+                    if (answer) {
                         pointLog[currentIdx] = pointLog[currentIdx]!! + pointsBuffer
                         break
                     }
@@ -73,6 +74,58 @@ fun main() {
         println(pointLog.mapKeys { players[it.key] })
 
     }
+}
+
+class AutoPlayer : Player {
+    override fun move(dice: List<Int>, player: String, pointsBuffer: Int, toMap: Map<Int, Int>): List<Int> {
+        println("$dice")
+        val fiveten: (Int) -> Boolean = { it == 1 || it == 5 }
+        val out = mutableListOf<Int>()
+        val copy = dice.toMutableList()
+        val (a, b) = testStraights(dice)
+        if (a > 0) {
+            copy.removeAll(b)
+            out.addAll(b)
+        }
+        val (pp, pl) = testPasch(copy)
+        if (pp >= 500) {
+            copy.removeAll(pl)
+            out.addAll(pl)
+        }
+        if (copy.isNotEmpty()) {
+            if (copy.all(fiveten)) {
+                copy.clear()
+                out.addAll(copy)
+            }
+            if (out.isEmpty()) {
+                val shit = copy.filter(fiveten).minOfOrNull { it }
+                copy.remove(shit)
+                shit?.let { out.add(it) }
+            } else {
+                copy.size
+                val shit = copy.filter(fiveten)
+
+                if (copy.size - shit.size <= 2) {
+                    out.addAll(shit)
+                }
+            }
+        }
+        println("taking $out")
+        return out
+
+    }
+
+    override fun writePoints(numDice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean {
+        if (points > 1500) {
+            return true
+        }
+
+        if (numDice <= 2) {
+            return true
+        }
+        return false
+    }
+
 }
 
 private fun shuffleDice(numDice: Int) = (1..numDice).map { Random.nextInt(1, 6) }.sorted()
@@ -160,35 +213,48 @@ fun testStraights(dice: List<Int>): Pair<Int, List<Int>> {
     return 0 to emptyList()
 }
 
-private fun move(dice: List<Int>, player: String): List<Int> {
-    do {
-        val result = _move(dice, player)
-        if (result != null) {
-            return result
-        }
-    } while (true)
-}
+class CliPlayer : Player {
+    override fun move(dice: List<Int>, player: String, pointsBuffer: Int, toMap: Map<Int, Int>): List<Int> {
+        do {
+            val result = _move(dice, player)
+            if (result != null) {
+                return result
+            }
+        } while (true)
+    }
 
-private fun _move(dice: List<Int>, player: String): List<Int>? {
-    println(dice)
-    println("[$player]: Tell me your move. What do you keep?")
-    val keepingDice = readln()
-    val keptDiceUnverified = try {
-        if (keepingDice.isEmpty()) {
-            listOf()
-        } else {
-            keepingDice.split(";", " ", ",", "-").map { it.toInt() }
+    override fun writePoints(dice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean {
+        println("write points?")
+        val answer = readln()
+        return answer.startsWith("Y", ignoreCase = true)
+    }
+
+    private fun _move(dice: List<Int>, player: String): List<Int>? {
+        println(dice)
+        println("[$player]: Tell me your move. What do you keep?")
+        val keepingDice = readln()
+        val keptDiceUnverified = try {
+            if (keepingDice.isEmpty()) {
+                listOf()
+            } else {
+                keepingDice.split(";", " ", ",", "-").map { it.toInt() }
+            }
+        } catch (e: NumberFormatException) {
+            println("try again. $keepingDice is not a valid ")
+            return null
         }
-    } catch (e: NumberFormatException) {
-        println("try again. $keepingDice is not a valid ")
+        if (verifyDice(avaible = dice, possibleSub = keptDiceUnverified)) {
+            return keptDiceUnverified
+        } else {
+            println("You can only select available dice")
+        }
         return null
     }
-    if (verifyDice(avaible = dice, possibleSub = keptDiceUnverified)) {
-        return keptDiceUnverified
-    } else {
-        println("You can only select available dice")
-    }
-    return null
+}
+
+interface Player {
+    fun move(dice: List<Int>, player: String, pointsBuffer: Int, toMap: Map<Int, Int>): List<Int>
+    fun writePoints(dice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean
 }
 
 fun <K> verifyDice(avaible: List<K>, possibleSub: List<K>): Boolean {
