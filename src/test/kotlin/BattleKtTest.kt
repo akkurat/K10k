@@ -1,10 +1,10 @@
-import ch.taburett.containsEachInstance
-import ch.taburett.testEachInstance
-import ch.taburett.valuePasch
+import ch.taburett.battle.containsEachInstance
+import ch.taburett.battle.testEachInstance
+import ch.taburett.common.valuePasch
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-class MainKtTest {
+class BattleKtTest {
     @Test
     fun testTrue() {
         assertAll(

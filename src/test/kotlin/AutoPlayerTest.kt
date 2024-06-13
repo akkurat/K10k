@@ -1,4 +1,4 @@
-import ch.taburett.AutoPlayer
+import ch.taburett.common.AutoPlayer
 import org.assertj.core.api.Assertions.assertThat
 import kotlin.test.Test
 
