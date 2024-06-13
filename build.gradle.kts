@@ -1,5 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm") version "2.0.0"
+    application
 }
 
 group = "org.example"
@@ -18,4 +19,11 @@ tasks.test {
 }
 kotlin {
     jvmToolchain(21)
+}
+
+application {
+    mainClass = "ch.taburett.MainKt"
+}
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
 }

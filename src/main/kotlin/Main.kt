@@ -1,4 +1,4 @@
-package org.example
+package ch.taburett
 
 import kotlin.math.pow
 import kotlin.random.Random
