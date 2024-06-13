@@ -67,7 +67,8 @@ fun main() {
             }
         }
         if (pointLog.any { it.value > 10_000 }) {
-            println("lucky you $player")
+            println("lucky you $player. you won with")
+            println( pointLog.mapKeys { players[it.key] })
             break
         }
         currentIdx = (currentIdx + 1) % numPlayers
@@ -136,20 +137,21 @@ fun testPattern(dice: List<Int>): Int {
 
     val (straightPoints, straightDice) = testStraights(mutableDice.toList())
 
-    mutableDice.removeAll(straightDice)
+    mutableDice.removeAllOnlyFirstInstance(straightDice)
 
     val (paschPoints, paschDice) = testPasch(mutableDice.toList())
 
-    mutableDice.removeAll(paschDice)
+    mutableDice.removeAllOnlyFirstInstance(paschDice)
 
     val (singlePoints, singleDice) = singleDice(mutableDice.toList())
 
-    mutableDice.removeAll(singleDice)
+    mutableDice.removeAllOnlyFirstInstance(singleDice)
 
     if (mutableDice.isEmpty()) {
         return straightPoints + paschPoints + singlePoints
     }
 
+    println("you have leftovers: $mutableDice")
     return 0
 
 }
@@ -224,29 +226,42 @@ class CliPlayer : Player {
     }
 
     override fun writePoints(dice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean {
-        println("write points?")
-        val answer = readln()
-        return answer.startsWith("Y", ignoreCase = true)
+        while (true) {
+            println("write points?")
+            val answer = readln()
+            if (answer.startsWith("Y", ignoreCase = true)) {
+                return true
+            }
+            if (answer.startsWith("N", ignoreCase = true)) {
+                return false
+            }
+        }
     }
 
     private fun _move(dice: List<Int>, player: String): List<Int>? {
         println(dice)
-        println("[$player]: Tell me your move. What do you keep?")
+        println("[$player]: Tell me your move. What do you keep? N(one) / A(ll) / \\d+")
         val keepingDice = readln()
         val keptDiceUnverified = try {
-            if (keepingDice.isEmpty()) {
-                listOf()
+            if (keepingDice.startsWith("n", ignoreCase = true)) {
+                emptyList()
+            } else if (keepingDice.startsWith("a", ignoreCase = true)) {
+                dice
             } else {
-                keepingDice.split(";", " ", ",", "-").map { it.toInt() }
+                val list = "\\d".toRegex().findAll(keepingDice).map { it.value.toInt() }.toList()
+                list.ifEmpty {
+                    return null
+                }
             }
         } catch (e: NumberFormatException) {
             println("try again. $keepingDice is not a valid ")
             return null
         }
-        if (verifyDice(avaible = dice, possibleSub = keptDiceUnverified)) {
+        val failures = dice.testEachInstance( possibleSub = keptDiceUnverified)
+        if (failures.isEmpty()) {
             return keptDiceUnverified
         } else {
-            println("You can only select available dice")
+            println("You can only select available dice. $failures was not available")
         }
         return null
     }
@@ -257,14 +272,42 @@ interface Player {
     fun writePoints(dice: Int, points: Int, pointLog: MutableMap<Int, Int>): Boolean
 }
 
-fun <K> verifyDice(avaible: List<K>, possibleSub: List<K>): Boolean {
-    val avaibleMut = avaible.toMutableList()
+
+/**
+ * remove all
+ */
+fun <K> MutableList<K>.removeAllOnlyFirstInstance(possibleSub: List<K>): List<K> {
+    val failures = mutableListOf<K>()
+    for (sub in possibleSub) {
+        val wasThere = this.remove(sub)
+        if (!wasThere) {
+            failures.add(sub)
+        }
+    }
+    return failures
+}
+
+/**
+ *
+ */
+fun <K> List<K>.testEachInstance(possibleSub: List<K>): List<K> {
+    val avaibleMut = this.toMutableList()
+    val failures = mutableListOf<K>()
     for (sub in possibleSub) {
         val wasThere = avaibleMut.remove(sub)
         if (!wasThere) {
+            failures.add(sub)
+        }
+    }
+    return failures
+}
+
+fun <K> List<K>.containsEachInstance(possibleSub: List<K>): Boolean {
+    val avaibleMut = this.toMutableList()
+    for( s in possibleSub) {
+        if(!avaibleMut.remove(s)) {
             return false
         }
     }
     return true
 }
-

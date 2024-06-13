@@ -1,5 +1,6 @@
+import org.example.containsEachInstance
+import org.example.testEachInstance
 import org.example.valuePasch
-import org.example.verifyDice
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -7,16 +8,32 @@ class MainKtTest {
     @Test
     fun testTrue() {
         assertAll(
-            { assertTrue(verifyDice(listOf("A", "A", "B"), listOf("A", "A"))) },
-            { assertTrue(verifyDice(listOf("A", "B", "C"), listOf("C", "A"))) },
+            { assertTrue(listOf("A", "A", "B").containsEachInstance(listOf("A", "A"))) },
+            { assertTrue(listOf("A", "B", "C").containsEachInstance(listOf("C", "A"))) },
         )
     }
 
     @Test
     fun testFalse() {
         assertAll(
-            { assertFalse(verifyDice(listOf("A", "C", "B"), listOf("A", "A"))) },
-            { assertFalse(verifyDice(listOf("A", "A", "B", "B"), listOf("A", "A", "B", "B", "B"))) },
+            { assertFalse(listOf("A", "C", "B").containsEachInstance(listOf("A", "A"))) },
+            { assertFalse(listOf("A", "A", "B", "B").containsEachInstance(listOf("A", "A", "B", "B", "B"))) },
+        )
+    }
+
+    @Test
+    fun testElementsTrue() {
+        assertAll(
+            { assertTrue(emptyList<String>() == listOf("A", "A", "B").testEachInstance(listOf("A", "A"))) },
+            { assertTrue(emptyList<String>() == listOf("A", "B", "C").testEachInstance(listOf("C", "A"))) },
+        )
+    }
+
+    @Test
+    fun testElementsFalse() {
+        assertAll(
+            { assertFalse(listOf("A", "C", "B").containsEachInstance(listOf("A", "A"))) },
+            { assertFalse(listOf("A", "A", "B", "B").containsEachInstance(listOf("A", "A", "B", "B", "B"))) },
         )
     }
 
