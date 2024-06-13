@@ -1,6 +1,6 @@
-import org.example.containsEachInstance
-import org.example.testEachInstance
-import org.example.valuePasch
+import ch.taburett.containsEachInstance
+import ch.taburett.testEachInstance
+import ch.taburett.valuePasch
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

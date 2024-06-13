@@ -21,9 +21,18 @@ kotlin {
     jvmToolchain(21)
 }
 
+val mc = "ch.taburett.MainKt"
 application {
-    mainClass = "ch.taburett.MainKt"
+    mainClass = mc
 }
 tasks.named<JavaExec>("run") {
     standardInput = System.`in`
+}
+tasks.withType<Jar> {
+    manifest {
+        attributes["Main-Class"] = mc
+    }
+    configurations["runtimeClasspath"].forEach { file: File ->
+        from(zipTree(file.absoluteFile))
+    }
 }
